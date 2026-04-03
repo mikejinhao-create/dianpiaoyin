@@ -1,10 +1,14 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
+import '../../models/invoice.dart';
+import '../../services/supabase.dart';
 import '../../services/invoice_service.dart';
+import '../../services/invoice_upload_service.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -15,24 +19,71 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _imagePicker = ImagePicker();
+  bool _uploading = false;
 
-  Future<void> _pickImage() async {
+  Future<void> _pickAndUploadImage() async {
     try {
       final image = await _imagePicker.pickImage(source: ImageSource.gallery);
-      if (image != null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已选择图片: ${image.name}')),
-          );
-        }
-        // TODO: 上传到服务器 + 调用OCR
+      if (image == null) return;
+
+      setState(() => _uploading = true);
+
+      // 读取文件
+      final bytes = await image.readAsBytes();
+      final fileName = image.name;
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已选择: $fileName，正在上传...')),
+        );
+      }
+
+      // 上传到 Supabase Storage
+      final uploadService = ref.read(invoiceUploadServiceProvider);
+      final fileUrl = await uploadService.uploadFile(
+        filePath: image.path,
+        fileName: fileName,
+        bytes: bytes,
+      );
+
+      // 创建发票记录（简单模拟，实际需要OCR识别）
+      final invoiceService = ref.read(invoiceServiceProvider);
+      await invoiceService.createInvoiceManual(
+        fileName: fileName,
+        fileUrl: fileUrl,
+        fileType: fileName.split('.').last.toLowerCase(),
+      );
+
+      // 刷新列表
+      ref.refresh(invoiceListProvider);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('上传成功！')),
+        );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('选择失败: $e')),
+          SnackBar(content: Text('上传失败: $e')),
         );
       }
+    } finally {
+      setState(() => _uploading = false);
+    }
+  }
+
+  Future<void> _simulateScan() async {
+    setState(() => _uploading = true);
+    try {
+      await Future.delayed(const Duration(seconds: 1));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('扫码功能开发中，请稍后...')),
+        );
+      }
+    } finally {
+      setState(() => _uploading = false);
     }
   }
 
@@ -63,12 +114,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     icon: Icons.qr_code_scanner,
                     label: '扫码',
                     color: Colors.blue,
-                    onTap: () {
-                      // TODO: 打开扫码功能
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('扫码功能开发中...')),
-                      );
-                    },
+                    loading: _uploading,
+                    onTap: _simulateScan,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -77,7 +124,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     icon: Icons.photo_library,
                     label: '相册',
                     color: Colors.green,
-                    onTap: _pickImage,
+                    loading: _uploading,
+                    onTap: _pickAndUploadImage,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -196,19 +244,21 @@ class _QuickActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
+  final bool loading;
   final VoidCallback onTap;
 
   const _QuickActionButton({
     required this.icon,
     required this.label,
     required this.color,
+    this.loading = false,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
+      onTap: loading ? null : onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 20),
@@ -219,7 +269,16 @@ class _QuickActionButton extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Icon(icon, size: 32, color: color),
+            loading
+                ? SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: color,
+                    ),
+                  )
+                : Icon(icon, size: 32, color: color),
             const SizedBox(height: 8),
             Text(
               label,

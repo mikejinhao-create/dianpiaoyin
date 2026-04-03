@@ -91,6 +91,44 @@ class InvoiceService {
     return (response as List).map((e) => Invoice.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  /// 手动创建发票（上传后直接插入记录，不依赖OCR）
+  Future<Invoice> createInvoiceManual({
+    required String fileName,
+    required String fileUrl,
+    required String fileType,
+    String invoiceNo = '',
+    String invoiceType = '普票',
+    double amount = 0,
+    double taxAmount = 0,
+    double totalAmount = 0,
+    String sellerName = '',
+    String buyerName = '',
+    int companyId = 1,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('未登录');
+
+    final response = await _client.from('invoices').insert({
+      'user_id': user.id,
+      'company_id': companyId,
+      'file_name': fileName,
+      'file_url': fileUrl,
+      'file_type': fileType,
+      'invoice_no': invoiceNo,
+      'invoice_type': invoiceType,
+      'amount': amount.toString(),
+      'tax_amount': taxAmount.toString(),
+      'total_amount': totalAmount.toString(),
+      'invoice_date': DateTime.now().toIso8601String().split('T')[0],
+      'seller_name': sellerName,
+      'buyer_name': buyerName,
+      'status': 'active',
+      'print_count': 0,
+    }).select().single();
+
+    return Invoice.fromJson(response as Map<String, dynamic>);
+  }
+
   /// 获取单个发票
   Future<Invoice?> getInvoice(int id) async {
     final response = await _client
