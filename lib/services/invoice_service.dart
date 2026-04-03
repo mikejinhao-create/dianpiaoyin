@@ -68,14 +68,12 @@ class InvoiceService {
     final user = _client.auth.currentUser;
     if (user == null) return [];
 
-    // 用 PostgrestFilterBuilder 处理过滤
     final query = _client
         .from('invoices')
         .select()
         .eq('user_id', user.id)
         .eq('status', 'active');
 
-    // 搜索关键词
     if (keyword != null && keyword.isNotEmpty) {
       final escaped = keyword.replaceAll('%', '%%');
       (query as dynamic).or(
@@ -83,7 +81,6 @@ class InvoiceService {
       );
     }
 
-    // 分页和排序
     final response = await (query as dynamic)
         .order('created_at', ascending: false)
         .range((page - 1) * pageSize, page * pageSize - 1);
@@ -116,6 +113,17 @@ class InvoiceService {
     for (final id in ids) {
       await _client.from('invoices').update({'status': 'deleted'}).eq('id', id);
     }
+  }
+
+  /// 增加打印次数
+  Future<void> incrementPrintCount(int id) async {
+    final current = await _client
+        .from('invoices')
+        .select('print_count')
+        .eq('id', id)
+        .single();
+    final count = (current['print_count'] as int? ?? 0) + 1;
+    await _client.from('invoices').update({'print_count': count}).eq('id', id);
   }
 }
 
