@@ -24,31 +24,11 @@ class InvoiceUploadService {
     await _client.storage.from('invoices').uploadBinary(
       storagePath,
       bytes,
-      options: FileOptions(
-        contentType: _getContentType(fileName),
-      ),
     );
 
     // 返回公开URL（临时方案，正式环境用签名URL）
     final publicUrl = 'https://fmeiawlltymosqhusmwb.supabase.co/storage/v1/object/public/$storagePath';
     return publicUrl;
-  }
-
-  String _getContentType(String fileName) {
-    final ext = fileName.split('.').last.toLowerCase();
-    switch (ext) {
-      case 'pdf':
-        return 'application/pdf';
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'png':
-        return 'image/png';
-      case 'ofd':
-        return 'application/x-ofd';
-      default:
-        return 'application/octet-stream';
-    }
   }
 }
 
