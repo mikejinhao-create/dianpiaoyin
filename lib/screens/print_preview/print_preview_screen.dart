@@ -289,7 +289,7 @@ class _PrintPreviewScreenState extends ConsumerState<PrintPreviewScreen> {
           final invoice = entry.value;
           return Container(
             key: ValueKey(invoice.id),
-            margin: const EdgeInsets.only(bottom: index < _invoices.length - 1 ? 16 : 0),
+            margin: EdgeInsets.only(bottom: index < _invoices.length - 1 ? 16 : 0),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               border: Border.all(color: Colors.grey[300]!),
