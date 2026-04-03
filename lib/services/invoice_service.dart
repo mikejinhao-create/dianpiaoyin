@@ -9,12 +9,15 @@ import 'supabase.dart';
 final invoiceListProvider = FutureProvider.autoDispose<List<Invoice>>((ref) async {
   final client = ref.watch(supabaseClientProvider);
   final user = client.auth.currentUser;
-  if (user == null) return [];
+
+  // TODO: 临时去掉user_id过滤，方便测试。正式上线前改回来：
+  // if (user == null) return [];
+  // final userIdFilter = {'user_id': user.id};
 
   final response = await client
       .from('invoices')
       .select()
-      .eq('user_id', user.id)
+      // .eq('user_id', user?.id ?? 1)  // 临时用user_id=1测试
       .eq('status', 'active')
       .order('created_at', ascending: false)
       .limit(100);
