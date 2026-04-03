@@ -16,10 +16,10 @@ class InvoiceUploadService {
     required String fileName,
     required Uint8List bytes,
   }) async {
-    final user = _client.auth.currentUser;
-    if (user == null) throw Exception('未登录');
+    // TODO: 临时用user_id=1测试，正式上线要改回真实用户
+    final userId = 1; // 临时硬编码
 
-    final storagePath = 'invoices/${user.id}/${DateTime.now().millisecondsSinceEpoch}_$fileName';
+    final storagePath = 'invoices/$userId/${DateTime.now().millisecondsSinceEpoch}_$fileName';
 
     await _client.storage.from('invoices').uploadBinary(
       storagePath,
