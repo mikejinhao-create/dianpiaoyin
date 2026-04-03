@@ -68,28 +68,23 @@ class InvoiceService {
     final user = _client.auth.currentUser;
     if (user == null) return [];
 
-    // 构建基础查询：select + 基础过滤
-    PostgrestBuilder baseQuery = _client
+    // 用 PostgrestFilterBuilder 处理过滤
+    final query = _client
         .from('invoices')
         .select()
         .eq('user_id', user.id)
         .eq('status', 'active');
 
-    // 按公司筛选
-    if (companyId != null) {
-      baseQuery = (baseQuery as dynamic).eq('company_id', companyId);
-    }
-
     // 搜索关键词
     if (keyword != null && keyword.isNotEmpty) {
       final escaped = keyword.replaceAll('%', '%%');
-      baseQuery = (baseQuery as dynamic).or(
+      (query as dynamic).or(
         'invoice_no.ilike.%$escaped%,seller_name.ilike.%$escaped%,buyer_name.ilike.%$escaped%',
       );
     }
 
-    // 分页
-    final response = await (baseQuery as dynamic)
+    // 分页和排序
+    final response = await (query as dynamic)
         .order('created_at', ascending: false)
         .range((page - 1) * pageSize, page * pageSize - 1);
 
@@ -116,9 +111,11 @@ class InvoiceService {
     await _client.from('invoices').update({'status': 'deleted'}).eq('id', id);
   }
 
-  /// 批量删除
+  /// 批量删除（循环删除）
   Future<void> batchDelete(List<int> ids) async {
-    await _client.from('invoices').update({'status': 'deleted'}).in_('id', ids);
+    for (final id in ids) {
+      await _client.from('invoices').update({'status': 'deleted'}).eq('id', id);
+    }
   }
 }
 
