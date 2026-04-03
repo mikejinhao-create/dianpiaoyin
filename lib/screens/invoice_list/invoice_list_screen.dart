@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../models/invoice.dart';
 import '../../services/invoice_service.dart';
+import '../../services/supabase.dart';
 
 final invoiceListProvider = FutureProvider.autoDispose<List<Invoice>>((ref) async {
   final client = ref.watch(supabaseClientProvider);
