@@ -42,7 +42,7 @@ class InvoiceService {
     final fileUrl = 'invoices/${user.id}/${DateTime.now().millisecondsSinceEpoch}_$fileName';
     await _client.storage.from('invoices').upload(
       fileUrl,
-      Uint8List(0), // 实际文件上传需要前端读取文件后传入
+      Uint8List(0),
     );
 
     // 创建发票记录
@@ -68,23 +68,31 @@ class InvoiceService {
     final user = _client.auth.currentUser;
     if (user == null) return [];
 
-    var query = _client
+    // 构建基础查询：select + 基础过滤
+    PostgrestBuilder baseQuery = _client
         .from('invoices')
         .select()
         .eq('user_id', user.id)
-        .eq('status', 'active')
+        .eq('status', 'active');
+
+    // 按公司筛选
+    if (companyId != null) {
+      baseQuery = (baseQuery as dynamic).eq('company_id', companyId);
+    }
+
+    // 搜索关键词
+    if (keyword != null && keyword.isNotEmpty) {
+      final escaped = keyword.replaceAll('%', '%%');
+      baseQuery = (baseQuery as dynamic).or(
+        'invoice_no.ilike.%$escaped%,seller_name.ilike.%$escaped%,buyer_name.ilike.%$escaped%',
+      );
+    }
+
+    // 分页
+    final response = await (baseQuery as dynamic)
         .order('created_at', ascending: false)
         .range((page - 1) * pageSize, page * pageSize - 1);
 
-    if (companyId != null) {
-      query = query.eq('company_id', companyId);
-    }
-
-    if (keyword != null && keyword.isNotEmpty) {
-      query = query.or('invoice_no.ilike.%$keyword%,seller_name.ilike.%$keyword%,buyer_name.ilike.%$keyword%');
-    }
-
-    final response = await query;
     return (response as List).map((e) => Invoice.fromJson(e as Map<String, dynamic>)).toList();
   }
 
