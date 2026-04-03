@@ -14,14 +14,15 @@ final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
 
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/',
     redirect: (context, state) {
-      final loggedIn = authState;
-      final goingToLogin = state.matchedLocation == '/login';
-
-      if (goingToLogin) return null;
-      if (!loggedIn) return '/login';
+      // TODO: 临时开放所有页面，方便测试。正式上线前改回下面这段：
       return null;
+      // final loggedIn = authState;
+      // final goingToLogin = state.matchedLocation == '/login';
+      // if (goingToLogin) return null;
+      // if (!loggedIn) return '/login';
+      // return null;
     },
     routes: [
       GoRoute(
