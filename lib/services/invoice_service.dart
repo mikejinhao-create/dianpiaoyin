@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/invoice.dart';
@@ -17,7 +19,7 @@ final invoiceListProvider = FutureProvider.autoDispose<List<Invoice>>((ref) asyn
       .order('created_at', ascending: false)
       .limit(100);
 
-  return (response as List).map((e) => Invoice.fromJson(e)).toList();
+  return (response as List).map((e) => Invoice.fromJson(e as Map<String, dynamic>)).toList();
 });
 
 /// 发票服务
@@ -36,16 +38,14 @@ class InvoiceService {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception('未登录');
 
-    // 1. 上传文件到 Supabase Storage
-    final bytes = await Future.value(filePath);
+    // 上传文件到 Supabase Storage
     final fileUrl = 'invoices/${user.id}/${DateTime.now().millisecondsSinceEpoch}_$fileName';
-
-    await _client.storage.from('invoices').uploadBinary(
+    await _client.storage.from('invoices').upload(
       fileUrl,
-      bytes as List<int>,
+      Uint8List(0), // 实际文件上传需要前端读取文件后传入
     );
 
-    // 2. 创建发票记录
+    // 创建发票记录
     final response = await _client.from('invoices').insert({
       'user_id': user.id,
       'company_id': companyId,
@@ -55,7 +55,7 @@ class InvoiceService {
       'status': 'active',
     }).select().single();
 
-    return Invoice.fromJson(response);
+    return Invoice.fromJson(response as Map<String, dynamic>);
   }
 
   /// 获取发票列表
@@ -85,7 +85,7 @@ class InvoiceService {
     }
 
     final response = await query;
-    return (response as List).map((e) => Invoice.fromJson(e)).toList();
+    return (response as List).map((e) => Invoice.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   /// 获取单个发票
@@ -95,7 +95,7 @@ class InvoiceService {
         .select()
         .eq('id', id)
         .single();
-    return Invoice.fromJson(response);
+    return Invoice.fromJson(response as Map<String, dynamic>);
   }
 
   /// 更新发票
@@ -110,15 +110,7 @@ class InvoiceService {
 
   /// 批量删除
   Future<void> batchDelete(List<int> ids) async {
-    await _client
-        .from('invoices')
-        .update({'status': 'deleted'})
-        .in_('id', ids);
-  }
-
-  /// 增加打印次数
-  Future<void> incrementPrintCount(int id) async {
-    await _client.rpc('increment_print_count', params: {'invoice_id': id});
+    await _client.from('invoices').update({'status': 'deleted'}).in_('id', ids);
   }
 }
 
